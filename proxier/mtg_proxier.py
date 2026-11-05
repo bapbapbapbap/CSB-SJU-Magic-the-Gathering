@@ -21,7 +21,7 @@ import re
 import sys
 import time
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 __version__ = "0.1.0"
