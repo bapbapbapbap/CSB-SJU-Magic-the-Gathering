@@ -522,3 +522,16 @@ def test_long_note_is_cut_with_pointer_to_properties(tmp_path):
             session=FakeSession(), sleep=lambda _: None)
     assert "full list in PDF properties" in _page1_text(out)
     assert "Zzzz Missing Card Number 39" in PdfReader(str(out)).metadata["/NotIncluded"]
+
+
+def test_images_stored_binary_not_ascii85(tmp_path):
+    from pypdf import PdfReader
+    deck = tmp_path / "d.txt"
+    deck.write_text("1 Sol Ring\n")
+    out = tmp_path / "d.pdf"
+    mp.main([str(deck), "-o", str(out), "--cache-dir", str(tmp_path / "c")],
+            session=FakeSession(), sleep=lambda _: None)
+    for xo in PdfReader(str(out)).pages[0]["/Resources"]["/XObject"].values():
+        filters = xo.get_object().get("/Filter")
+        filters = [filters] if isinstance(filters, str) else list(filters or [])
+        assert "/ASCII85Decode" not in filters

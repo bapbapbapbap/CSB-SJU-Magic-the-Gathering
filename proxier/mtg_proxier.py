@@ -437,8 +437,11 @@ def _fit(c, text: str, width_pt: float, size: float = 7.0, min_size: float = 5.0
 
 
 def render_pdf(images: list[Path], out: Path, layout: Layout, notes: list[str] = ()) -> int:
+    from reportlab import rl_config
     from reportlab.pdfgen import canvas
     from reportlab.lib.colors import black, HexColor
+
+    rl_config.useA85 = 0   # store images as binary, not ASCII85 text: ~25% smaller, same pixels
 
     pw, ph = PAGE_SIZES[layout.page]
     c = canvas.Canvas(str(out), pagesize=(pw * MM, ph * MM))
