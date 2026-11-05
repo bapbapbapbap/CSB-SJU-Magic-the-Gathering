@@ -27,6 +27,8 @@ __version__ = "0.1.0"
 
 API = "https://api.scryfall.com"
 USER_AGENT = f"mtg-proxier/{__version__}"
+REPO_URL = "https://github.com/bapbapbapbap/CSB-SJU-Magic-the-Gathering"
+FAN_CONTENT_POLICY = "https://company.wizards.com/en/legal/fancontentpolicy"
 HEADERS = {"User-Agent": USER_AGENT, "Accept": "application/json;q=0.9,*/*;q=0.8"}
 COLLECTION_BATCH = 75          # Scryfall's max identifiers per /cards/collection call
 COLLECTION_INTERVAL = 0.5      # /cards/collection is limited to 2 requests/second
@@ -295,8 +297,92 @@ class Layout:
         return x, y
 
 
-FOOTER = ("Playtest cards. Not for sale. Card images © Wizards of the Coast; "
-          "image data from Scryfall. Print at 100% / actual size.")
+# What this PDF is, and whose is what. The tool's license (GPL) covers the tool,
+# not this output: the card images in it belong to Wizards of the Coast, and the
+# image hosting and card data come from Scryfall. Nothing here claims either.
+META_SUBJECT = "Magic: The Gathering playtest cards. Personal, non-commercial use. Not for sale."
+META_RIGHTS = ("Card images, card text and card names are \u00a9 Wizards of the Coast LLC. "
+               "Unofficial Fan Content; not approved or endorsed by Wizards of the Coast. "
+               "These rights are not covered by any license of the software that made this file.")
+META_SOURCE = ("Card images and card data retrieved from Scryfall (https://scryfall.com) at the time "
+               "this file was made. Not produced by, endorsed by, or affiliated with Scryfall.")
+META_GENERATOR = (f"Made with mtg-proxier {__version__} ({REPO_URL}). The software is licensed "
+                  "GPL-3.0-or-later; that license applies to the software only, not to this "
+                  "document or the card images in it.")
+META_KEYWORDS = "Magic: The Gathering; MTG; playtest cards; proxies; not for sale; Scryfall"
+
+
+def _xml(s: str) -> str:
+    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+             .replace('"', "&quot;"))
+
+
+def _xmp_packet(title: str, producer: str, created: str) -> bytes:
+    def alt(v):
+        return f'<rdf:Alt><rdf:li xml:lang="x-default">{_xml(v)}</rdf:li></rdf:Alt>'
+    xml = f"""<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about=""
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+    xmlns:pdf="http://ns.adobe.com/pdf/1.3/"
+    xmlns:xmpRights="http://ns.adobe.com/xap/1.0/rights/">
+   <dc:format>application/pdf</dc:format>
+   <dc:title>{alt(title)}</dc:title>
+   <dc:description>{alt(META_SUBJECT)}</dc:description>
+   <dc:rights>{alt(META_RIGHTS)}</dc:rights>
+   <dc:source>https://scryfall.com</dc:source>
+   <dc:subject><rdf:Bag>{"".join(f"<rdf:li>{_xml(k.strip())}</rdf:li>" for k in META_KEYWORDS.split(";"))}</rdf:Bag></dc:subject>
+   <xmpRights:Marked>True</xmpRights:Marked>
+   <xmpRights:Owner><rdf:Bag><rdf:li>Wizards of the Coast LLC</rdf:li></rdf:Bag></xmpRights:Owner>
+   <xmpRights:UsageTerms>{alt(META_SUBJECT + " " + META_SOURCE)}</xmpRights:UsageTerms>
+   <xmpRights:WebStatement>{FAN_CONTENT_POLICY}</xmpRights:WebStatement>
+   <xmp:CreatorTool>{_xml(f"mtg-proxier {__version__} ({REPO_URL})")}</xmp:CreatorTool>
+   <xmp:CreateDate>{created}</xmp:CreateDate>
+   <xmp:MetadataDate>{created}</xmp:MetadataDate>
+   <pdf:Producer>{_xml(producer)}</pdf:Producer>
+   <pdf:Keywords>{_xml(META_KEYWORDS)}</pdf:Keywords>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>"""
+    return xml.encode("utf-8")
+
+
+def write_metadata(path: Path, title: str) -> None:
+    """Stamp attribution into the PDF: standard Info fields, custom /Rights,
+    /Source and /Generator keys, and an XMP packet (dc:rights, xmpRights:*),
+    which is what Acrobat's copyright panel and asset managers read."""
+    from datetime import datetime, timezone
+    from pypdf import PdfReader, PdfWriter
+
+    writer = PdfWriter(clone_from=PdfReader(str(path)))
+    producer = str((writer.metadata or {}).get("/Producer", "ReportLab"))
+    now = datetime.now(timezone.utc)
+    writer.add_metadata({
+        "/Title": title,
+        "/Author": "",
+        "/Subject": META_SUBJECT,
+        "/Keywords": META_KEYWORDS,
+        "/Creator": f"mtg-proxier {__version__} ({REPO_URL})",
+        "/Rights": META_RIGHTS,
+        "/Source": META_SOURCE,
+        "/Generator": META_GENERATOR,
+    })
+    writer.xmp_metadata = _xmp_packet(title, producer, now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    from pypdf.generic import NameObject
+    stream = writer.root_object["/Metadata"].get_object()      # tag it so readers recognize it
+    stream[NameObject("/Type")] = NameObject("/Metadata")
+    stream[NameObject("/Subtype")] = NameObject("/XML")
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "wb") as f:
+        writer.write(f)
+    os.replace(tmp, path)
+
+
+FOOTER = ("Playtest cards. Not for sale. Card images © Wizards of the Coast LLC. "
+          "Images and data via Scryfall, not affiliated. Print at 100% / actual size.")
 
 
 def render_pdf(images: list[Path], out: Path, layout: Layout) -> int:
@@ -306,7 +392,8 @@ def render_pdf(images: list[Path], out: Path, layout: Layout) -> int:
     pw, ph = PAGE_SIZES[layout.page]
     c = canvas.Canvas(str(out), pagesize=(pw * MM, ph * MM))
     c.setTitle(out.stem)
-    c.setCreator(USER_AGENT)
+    c.setAuthor("")
+    c.setCreator(f"mtg-proxier {__version__} ({REPO_URL})")
     pages = max(1, -(-len(images) // layout.per_page))
     for p in range(pages):
         chunk = images[p * layout.per_page:(p + 1) * layout.per_page]
@@ -327,6 +414,7 @@ def render_pdf(images: list[Path], out: Path, layout: Layout) -> int:
         c.drawRightString((pw - 5) * MM, (ph - 4) * MM, f"{p + 1}/{pages}")
         c.showPage()
     c.save()
+    write_metadata(out, out.stem)
     return pages
 
 

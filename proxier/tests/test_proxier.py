@@ -343,3 +343,55 @@ def test_basic_caught_by_type_line_when_name_differs(tmp_path):
     rc = mp.main([str(deck), "-o", str(out), "--skip-basics", "--cache-dir", str(tmp_path / "c")],
                  session=FakeSession(), sleep=lambda _: None)
     assert rc == 0 and _pages(out) == 1
+
+
+# ---------------------------------------------------------------- PDF metadata
+
+def test_pdf_metadata_attributes_correctly(tmp_path):
+    import xml.etree.ElementTree as ET
+    from pypdf import PdfReader
+
+    deck = tmp_path / "Atraxa Superfriends.txt"
+    deck.write_text("1 Sol Ring\n")
+    out = tmp_path / "out.pdf"
+    assert mp.main([str(deck), "-o", str(out), "--cache-dir", str(tmp_path / "c")],
+                   session=FakeSession(), sleep=lambda _: None) == 0
+    r = PdfReader(str(out))
+    info = r.metadata
+
+    assert info["/Title"] == "out"
+    assert "Not for sale" in info["/Subject"]
+    assert "Wizards of the Coast LLC" in info["/Rights"]
+    assert "not covered by any license of the software" in info["/Rights"]
+    assert "Scryfall" in info["/Source"] and "Not produced by, endorsed by, or affiliated with Scryfall" in info["/Source"]
+    assert "GPL-3.0-or-later" in info["/Generator"] and "software only" in info["/Generator"]
+    assert mp.REPO_URL in info["/Creator"]
+    # The GPL is only ever named as the software's license, never the document's
+    for key in ("/Title", "/Subject", "/Rights", "/Source", "/Keywords"):
+        assert "GPL" not in info[key]
+
+    raw = r.trailer["/Root"]["/Metadata"].get_object().get_data()
+    root = ET.fromstring(raw.split(b"?>", 1)[1].rsplit(b"<?xpacket", 1)[0])   # well-formed XML
+    ns = {"dc": "http://purl.org/dc/elements/1.1/",
+          "xmpRights": "http://ns.adobe.com/xap/1.0/rights/",
+          "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#"}
+    rights = root.find(".//dc:rights/rdf:Alt/rdf:li", ns).text
+    assert rights == mp.META_RIGHTS
+    assert root.find(".//xmpRights:Marked", ns).text == "True"
+    assert root.find(".//xmpRights:Owner/rdf:Bag/rdf:li", ns).text == "Wizards of the Coast LLC"
+    assert root.find(".//xmpRights:WebStatement", ns).text == mp.FAN_CONTENT_POLICY
+    assert root.find(".//dc:source", ns).text == "https://scryfall.com"
+    assert not out.with_suffix(".pdf.tmp").exists()
+
+
+def test_xmp_stream_is_tagged(tmp_path):
+    from pypdf import PdfReader
+    deck = tmp_path / "d.txt"
+    deck.write_text("1 Sol Ring\n")
+    out = tmp_path / "d.pdf"
+    mp.main([str(deck), "-o", str(out), "--cache-dir", str(tmp_path / "c")],
+            session=FakeSession(), sleep=lambda _: None)
+    md = PdfReader(str(out)).trailer["/Root"]["/Metadata"].get_object()
+    assert md["/Type"] == "/Metadata" and md["/Subtype"] == "/XML"
+    r = subprocess.run(["pdfinfo", str(out)], capture_output=True, text=True)
+    assert "Unknown Metadata" not in r.stderr

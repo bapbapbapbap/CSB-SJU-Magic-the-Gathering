@@ -65,6 +65,20 @@ Scryfall's API is free, and the tool follows their rules for using it:
 
 These are playtest cards for personal, non-commercial play: testing a deck before you buy into it, or loaning a deck to a new player. Every page is footed *"Playtest cards. Not for sale."* Don't sell them, and don't pass them off as real cards. Card images are © Wizards of the Coast. This project is unofficial Fan Content and isn't approved or endorsed by Wizards of the Coast or by Scryfall.
 
+## What's written into the PDF
+
+Every PDF credits each owner for what's theirs. You can see this in any PDF viewer's document properties, and in Acrobat's copyright panel:
+
+| Field | Says |
+|---|---|
+| Rights (`/Rights`, XMP `dc:rights`) | Card images, text and names are © Wizards of the Coast LLC. Unofficial Fan Content, not endorsed by Wizards. Not covered by this software's license. |
+| Rights owner (XMP `xmpRights:Owner`) | Wizards of the Coast LLC, linked to their [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy) |
+| Source (`/Source`, XMP `dc:source`) | Images and card data came from Scryfall. Not produced by, endorsed by, or affiliated with Scryfall. |
+| Generator (`/Generator`, `Creator`) | Made with mtg-proxier, with a link to this repo. The GPL covers the software only, not the PDF or the cards in it. |
+| Subject | Playtest cards for personal, non-commercial use. Not for sale. |
+
+The GPL is never stated as the license of the PDF itself. The PDF is mostly Wizards' card art, and that was never ours to license.
+
 ## License
 
 The code is [GPL-3.0-or-later](../LICENSES/GPL-3.0-or-later.txt). You can fork it, change it, and ship it, but anything you distribute that's built on it has to be GPL too, with source available. Card images aren't part of this repo: they're downloaded at run time and stay © Wizards of the Coast.
