@@ -449,3 +449,76 @@ def test_no_fuzzy_flag(tmp_path, capsys):
     rc = mp.main([str(deck), "--no-fuzzy", "-o", str(tmp_path / "d.pdf"), "--cache-dir", str(tmp_path / "c")],
                  session=s, sleep=lambda _: None)
     assert rc == 1 and s.named == [] and "not found (line 1): Sol Rnig" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------- page-one notes
+
+def _page1_text(pdf):
+    return subprocess.run(["pdftotext", "-f", "1", "-l", "1", "-layout", str(pdf), "-"],
+                          capture_output=True, text=True).stdout
+
+
+def test_omission_notes_text():
+    notes = mp.omission_notes(mp.Counter({"Forest": 12, "Snow-Covered Island": 3, "Wastes": 1}),
+                              [mp.Entry("Zzzz Not A Card", 2)])
+    assert notes == ["Basic lands not included (16): 12 Forest, 3 Snow-Covered Island, 1 Wastes",
+                     "Not found, not printed (2): 2 Zzzz Not A Card"]
+    assert mp.omission_notes(mp.Counter(), []) == []
+
+
+def test_skipped_basics_are_listed_on_page_one_with_counts(tmp_path, capsys):
+    from pypdf import PdfReader
+    deck = tmp_path / "archidekt.csv"
+    deck.write_text(ARCHIDEKT_DECK)
+    out = tmp_path / "a.pdf"
+    mp.main([str(deck), "-o", str(out), "--skip-basics", "--cache-dir", str(tmp_path / "c")],
+            session=FakeSession(), sleep=lambda _: None)
+    want = "Basic lands not included (16): 12 Forest, 3 Snow-Covered Island, 1 Wastes"
+    assert want in capsys.readouterr().out
+    assert want in " ".join(_page1_text(out).split())
+    assert PdfReader(str(out)).metadata["/NotIncluded"] == want
+
+
+def test_basics_caught_by_type_line_are_counted_too(tmp_path):
+    deck = tmp_path / "d.csv"
+    deck.write_text(f"Quantity,Name,Scryfall ID\n10,Wald,{_uuid('fdn', '280')}\n1,Sol Ring,\n")
+    out = tmp_path / "d.pdf"
+    mp.main([str(deck), "-o", str(out), "--skip-basics", "--cache-dir", str(tmp_path / "c")],
+            session=FakeSession(), sleep=lambda _: None)
+    assert "Basic lands not included (10): 10 Forest" in " ".join(_page1_text(out).split())
+
+
+def test_letter_merges_notes_onto_one_line_and_a4_stacks_them(tmp_path):
+    deck = tmp_path / "d.txt"
+    deck.write_text("1 Sol Ring\n7 Forest\n2 Island\n1 Zzzz Not A Card\n")
+    for page, merged in (("letter", True), ("a4", False)):
+        out = tmp_path / f"{page}.pdf"
+        mp.main([str(deck), "-o", str(out), "--skip-basics", "--page", page,
+                 "--cache-dir", str(tmp_path / "c")], session=FakeSession(), sleep=lambda _: None)
+        lines = [l for l in _page1_text(out).splitlines() if "not included" in l or "Not found" in l]
+        text = " ".join(" ".join(lines).split())
+        assert "Basic lands not included (9): 7 Forest, 2 Island" in text
+        assert "Not found, not printed (1): 1 Zzzz Not A Card" in text
+        assert (len(lines) == 1) == merged
+
+
+def test_no_notes_when_nothing_left_out(tmp_path):
+    from pypdf import PdfReader
+    deck = tmp_path / "d.txt"
+    deck.write_text("1 Sol Ring\n")
+    out = tmp_path / "d.pdf"
+    mp.main([str(deck), "-o", str(out), "--cache-dir", str(tmp_path / "c")],
+            session=FakeSession(), sleep=lambda _: None)
+    assert "not included" not in _page1_text(out)
+    assert PdfReader(str(out)).metadata["/NotIncluded"] == "Nothing left out."
+
+
+def test_long_note_is_cut_with_pointer_to_properties(tmp_path):
+    from pypdf import PdfReader
+    deck = tmp_path / "d.txt"
+    deck.write_text("1 Sol Ring\n" + "".join(f"1 Zzzz Missing Card Number {i}\n" for i in range(40)))
+    out = tmp_path / "d.pdf"
+    mp.main([str(deck), "-o", str(out), "--cache-dir", str(tmp_path / "c")],
+            session=FakeSession(), sleep=lambda _: None)
+    assert "full list in PDF properties" in _page1_text(out)
+    assert "Zzzz Missing Card Number 39" in PdfReader(str(out)).metadata["/NotIncluded"]

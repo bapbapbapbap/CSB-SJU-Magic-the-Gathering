@@ -20,6 +20,7 @@ import os
 import re
 import sys
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -372,7 +373,7 @@ def _xmp_packet(title: str, producer: str, created: str) -> bytes:
     return xml.encode("utf-8")
 
 
-def write_metadata(path: Path, title: str) -> None:
+def write_metadata(path: Path, title: str, notes: list[str] = ()) -> None:
     """Stamp attribution into the PDF: standard Info fields, custom /Rights,
     /Source and /Generator keys, and an XMP packet (dc:rights, xmpRights:*),
     which is what Acrobat's copyright panel and asset managers read."""
@@ -391,6 +392,7 @@ def write_metadata(path: Path, title: str) -> None:
         "/Rights": META_RIGHTS,
         "/Source": META_SOURCE,
         "/Generator": META_GENERATOR,
+        "/NotIncluded": " | ".join(notes) if notes else "Nothing left out.",
     })
     writer.xmp_metadata = _xmp_packet(title, producer, now.strftime("%Y-%m-%dT%H:%M:%SZ"))
     from pypdf.generic import NameObject
@@ -407,7 +409,34 @@ FOOTER = ("Playtest cards. Not for sale. Card images © Wizards of the Coast LLC
           "Images and data via Scryfall, not affiliated. Print at 100% / actual size.")
 
 
-def render_pdf(images: list[Path], out: Path, layout: Layout) -> int:
+def omission_notes(skipped_basics: Counter, missing: list[Entry]) -> list[str]:
+    """Lines for page 1 saying what the PDF leaves out, so whoever gets the
+    printout knows to add basics and which cards to find elsewhere."""
+    notes = []
+    if skipped_basics:
+        parts = ", ".join(f"{n} {name}" for name, n in
+                          sorted(skipped_basics.items(), key=lambda kv: (-kv[1], kv[0])))
+        notes.append(f"Basic lands not included ({sum(skipped_basics.values())}): {parts}")
+    if missing:
+        qty = sum(e.qty for e in missing)
+        parts = ", ".join(f"{e.qty} {e.name}" for e in missing)
+        notes.append(f"Not found, not printed ({qty}): {parts}")
+    return notes
+
+
+def _fit(c, text: str, width_pt: float, size: float = 7.0, min_size: float = 5.0) -> tuple[str, float]:
+    """Shrink to fit the margin; if it still won't fit, cut it with an ellipsis."""
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    while size > min_size and stringWidth(text, "Helvetica-Bold", size) > width_pt:
+        size -= 0.25
+    if stringWidth(text, "Helvetica-Bold", size) > width_pt:
+        while text and stringWidth(text + " \u2026 (full list in PDF properties)", "Helvetica-Bold", size) > width_pt:
+            text = text[:-1]
+        text = text.rstrip(" ,") + " \u2026 (full list in PDF properties)"
+    return text, size
+
+
+def render_pdf(images: list[Path], out: Path, layout: Layout, notes: list[str] = ()) -> int:
     from reportlab.pdfgen import canvas
     from reportlab.lib.colors import black, HexColor
 
@@ -433,11 +462,32 @@ def render_pdf(images: list[Path], out: Path, layout: Layout) -> int:
         c.setFillColor(black)
         c.setFont("Helvetica", 6)
         c.drawCentredString(pw / 2 * MM, 2 * MM, FOOTER)
-        c.drawRightString((pw - 5) * MM, (ph - 4) * MM, f"{p + 1}/{pages}")
+        c.drawRightString((pw - 5) * MM, (ph - 3) * MM, f"{p + 1}/{pages}")
+        if p == 0 and notes:
+            _page_one_notes(c, layout, notes)
         c.showPage()
     c.save()
-    write_metadata(out, out.stem)
+    write_metadata(out, out.stem, notes)
     return pages
+
+
+def _page_one_notes(c, layout: Layout, notes: list[str]) -> None:
+    """Top margin of page 1, clear of the crop ticks (which end 3 mm past the grid)."""
+    from reportlab.lib.colors import black
+    pw, ph = PAGE_SIZES[layout.page]
+    ox, oy = layout.origin()
+    left, right = ox, pw - 14          # leave room for the page counter
+    top_grid = oy + layout.rows * layout.card_h + (layout.rows - 1) * layout.gap
+    room = ph - (top_grid + 3.0)       # mm between the tick ends and the page edge
+    line_h = 2.6
+    lines = notes[: max(1, int((room - 0.6) // line_h))]
+    if len(lines) < len(notes):        # out of room: merge what's left onto the last line
+        lines = lines[:-1] + [" | ".join(notes[len(lines) - 1:])]
+    c.setFillColor(black)
+    for i, text in enumerate(lines):
+        text, size = _fit(c, text, (right - left) * MM)
+        c.setFont("Helvetica-Bold", size)
+        c.drawString(left * MM, (ph - 3 - i * line_h) * MM, text)
 
 
 def _crop_marks(c, layout: Layout, color) -> None:
@@ -520,7 +570,11 @@ def main(argv=None, session=None, sleep=time.sleep) -> int:
         entries = [e for e in entries if not excluded & {_norm(c) for c in e.categories}]
         if before - len(entries):
             print(f"Skipping {before - len(entries)} line(s) in: {', '.join(sorted(excluded))}")
+    skipped_basics: Counter = Counter()
     if args.skip_basics:   # cheap name check first, so basics never hit the API
+        for e in entries:
+            if _norm(e.name) in BASIC_LANDS:
+                skipped_basics[_norm(e.name).title()] += e.qty
         entries = [e for e in entries if _norm(e.name) not in BASIC_LANDS]
     if not entries:
         print("error: no cards to print in the decklist", file=sys.stderr)
@@ -542,6 +596,9 @@ def main(argv=None, session=None, sleep=time.sleep) -> int:
                 still.append(e)
         missing = still
     if args.skip_basics:   # then the type line, for anything the name check missed
+        for i, c in found.items():
+            if is_basic_land(c):
+                skipped_basics[c["name"]] += entries[i].qty
         found = {i: c for i, c in found.items() if not is_basic_land(c)}
     for e in missing:
         where = f" [{e.set}{' #' + e.collector_number if e.collector_number else ''}]" if e.set else ""
@@ -563,8 +620,11 @@ def main(argv=None, session=None, sleep=time.sleep) -> int:
                     crop_marks=not args.no_crop_marks,
                     corner_fill=None if args.corner_fill.lower() == "white" else args.corner_fill)
     out = args.output or args.decklist.with_suffix(".pdf")
-    pages = render_pdf(images, out, layout)
+    notes = omission_notes(skipped_basics, missing)
+    pages = render_pdf(images, out, layout, notes)
     print(f"Wrote {out}: {len(images)} cards on {pages} page(s).")
+    for n in notes:
+        print(f"  page 1 notes: {n}")
     if missing:
         print(f"{len(missing)} line(s) not found; see above.", file=sys.stderr)
         return 1

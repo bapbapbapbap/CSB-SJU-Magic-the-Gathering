@@ -49,7 +49,7 @@ SB: 1 Swords to Plowshares
 
 | Flag | Does |
 |---|---|
-| `--skip-basics` | Leaves out basic lands: Plains, Island, Swamp, Mountain, Forest, Wastes, and snow basics. It checks the name first, so basics are never sent to the API, then checks each card's Scryfall type line to catch anything listed under another name. Dryad Arbor and other nonbasic Forests still print. |
+| `--skip-basics` | Leaves out basic lands: Plains, Island, Swamp, Mountain, Forest, Wastes, and snow basics. It checks the name first, so basics are never sent to the API, then checks each card's Scryfall type line to catch anything listed under another name. Dryad Arbor and other nonbasic Forests still print. Page 1 of the PDF says which basics were left out and how many, e.g. *Basic lands not included (16): 12 Forest, 3 Snow-Covered Island, 1 Wastes*. |
 | `--exclude-category NAME` | Drops rows in that Archidekt category or Moxfield board. Repeatable. Default: `Maybeboard`. `--exclude-category none` prints everything. |
 | `--no-backs` | Prints only the front of double-faced cards. Default is front and back as separate cards. |
 | `--no-fuzzy` | Turns off typo correction. By default, a name that doesn't match exactly is retried with Scryfall's fuzzy search, and every correction is printed (`corrected (line 12): 'Swords to Plow' -> Swords to Plowshares`). It completes partial or missing words; it won't fix swapped letters so you can check it. Printings pinned by Scryfall ID or by set + collector number are never guessed. |
@@ -60,7 +60,7 @@ SB: 1 Swords to Plowshares
 | `--corner-fill black\|white\|#hex` | Color behind the rounded corners of the image. |
 | `--dry-run` | Look everything up and list what would print, without downloading images or writing a PDF. |
 
-Any card that still can't be found is listed with its line number. The PDF still gets made, and the exit code is 1.
+Any card that still can't be found is listed with its line number, in the terminal and in the top margin of page 1 (*Not found, not printed (1): …*), so whoever gets the printout knows what to add. The PDF still gets made, and the exit code is 1.
 
 **Typical Commander run:** `python mtg_proxier.py deck.csv --skip-basics`
 
@@ -88,6 +88,7 @@ Every PDF credits each owner for what's theirs. You can see this in any PDF view
 | Source (`/Source`, XMP `dc:source`) | Images and card data came from Scryfall. Not produced by, endorsed by, or affiliated with Scryfall. |
 | Generator (`/Generator`, `Creator`) | Made with mtg-proxier, with a link to this repo. The GPL covers the software only, not the PDF or the cards in it. |
 | Subject | Playtest cards for personal, non-commercial use. Not for sale. |
+| Not included (`/NotIncluded`) | The same page-1 notes: basics left out with their counts, and cards not found. Never cut short, even when the page margin has to be. |
 
 The GPL is never stated as the license of the PDF itself. The PDF is mostly Wizards' card art, and that was never ours to license.
 
