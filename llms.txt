@@ -17,7 +17,7 @@ Ground rules to keep while helping. These are playtest cards for personal, non-c
    - `Looking up 10 unique lines (10 cards) on Scryfall...`. The basics were removed before any lookup.
    - `corrected (line 16): 'Swords to Plow' -> Swords to Plowshares`. Scryfall's fuzzy search completed the name, and the tool says so. Fuzzy search handles partial and missing words, but not swapped letters: a live test showed `Sol Rnig` comes back not found. Reporting a line it can't resolve, rather than guessing, is the intended behavior.
    - `not found (line 17): Zzzz Not A Real Card`
-   - Nine resolved lines (confirmed against the live API on Windows, November 2026): Atraxa; Sol Ring with set `C21`; Command Tower; `Delver of Secrets // Insectile Aberration`; `Fire // Ice`; `Brazen Borrower // Petty Theft`; `Valki, God of Lies // Tibalt, Cosmic Impostor`; Dryad Arbor; Swords to Plowshares, from the partial-name line. Set codes and collector numbers other than `C21` are whatever printing Scryfall defaults to, and they will vary.
+   - Nine resolved lines (the first eight confirmed against the live API on Windows, November 2026): Atraxa; Sol Ring with set `C21`; Command Tower; `Delver of Secrets // Insectile Aberration`; `Fire // Ice`; `Brazen Borrower // Petty Theft`; `Valki, God of Lies // Tibalt, Cosmic Impostor`; Dryad Arbor; Swords to Plowshares, from the partial-name line. Set codes and collector numbers other than `C21` are whatever printing Scryfall defaults to, and they will vary.
    - Exit status 1, because one line wasn't found. That's correct.
 
    If any real card in that list shows as `not found`, that's a bug. Get the full output.
