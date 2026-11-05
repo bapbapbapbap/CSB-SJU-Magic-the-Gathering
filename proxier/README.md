@@ -2,9 +2,20 @@
 
 Decklist in, printable PDF out. Reads a CSV or plain-text decklist, looks every card up on [Scryfall](https://scryfall.com), and lays the card images out 3×3 at real card size (63 × 88 mm) with cut marks, ready to print, cut, and sleeve in front of a basic land.
 
+**Windows** (PowerShell or cmd, in this folder):
+
 ```
-pip install -r requirements.txt
-python mtg_proxier.py my-deck.csv
+.\proxy.bat my-deck.csv
+```
+
+On first run it sets up its own Python environment and installs everything. It only needs Python itself, from [python.org](https://www.python.org/downloads/): tick "Add python.exe to PATH" in the installer.
+
+**macOS / Linux:**
+
+```
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python mtg_proxier.py my-deck.csv
 ```
 
 That writes `my-deck.pdf` next to the list. **Print at 100% / "Actual size"**, not "Fit to page", or the cards come out small.
@@ -20,7 +31,7 @@ That writes `my-deck.pdf` next to the list. **Print at 100% / "Actual size"**, n
 | Exact printing | `Scryfall ID` (best), or `Set` / `Set Code` / `Edition Code` / `Edition` + `Collector Number` |
 | Category | `Category`, `Categories`, `Board` |
 
-- **Archidekt**: Export → CSV. The Scryfall ID column pins the exact printing you picked, and the Category column lets the proxier drop your Maybeboard.
+- **Archidekt**: in the export dialog, tick *Exclude maybeboard(s)*, choose CSV, enable at least *Quantity*, *Name* and *Scryfall ID*, and keep *Include header line* checked. The Scryfall ID pins the exact printing you picked.
 - **Moxfield**, **ManaBox**, **Deckbox**: their CSV exports work too. A set *name* in an `Edition` column (Deckbox) is ignored, and the card is looked up by name.
 - No header? `qty,name[,set,collector_number]` or one name per line works too.
 

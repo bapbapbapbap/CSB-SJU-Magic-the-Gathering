@@ -21,11 +21,13 @@ The one thing that isn't mine to license is the card art. The proxier downloads 
 
 ## Quick start: proxy one of these decks
 
+Windows, from the `proxier` folder:
+
 ```
-cd proxier
-pip install -r requirements.txt
-python mtg_proxier.py ../decks/<deck>.csv --skip-basics
+.\proxy.bat ..\decks\<deck>.csv --skip-basics
 ```
+
+macOS / Linux: see [`proxier/README.md`](proxier/README.md).
 
 Print the PDF at 100% scale, cut along the marks, and sleeve each proxy in front of a basic land or a bulk card.
 
