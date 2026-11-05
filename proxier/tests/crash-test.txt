@@ -13,5 +13,5 @@ Deck
 4 Forest
 2 Snow-Covered Island
 1 Wastes
-1 Sol Rnig
+1 Swords to Plow
 1 Zzzz Not A Real Card
