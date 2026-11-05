@@ -33,6 +33,7 @@ HEADERS = {"User-Agent": USER_AGENT, "Accept": "application/json;q=0.9,*/*;q=0.8
 COLLECTION_BATCH = 75          # Scryfall's max identifiers per /cards/collection call
 COLLECTION_INTERVAL = 0.5      # /cards/collection is limited to 2 requests/second
 IMAGE_INTERVAL = 0.05          # be polite to the image CDN too
+NAMED_INTERVAL = 0.1           # /cards/named and other API endpoints: 10 requests/second
 CACHE_TTL = 24 * 3600          # Scryfall asks clients to cache for at least 24 h
 
 MM = 72 / 25.4                 # PDF points per millimetre
@@ -180,7 +181,8 @@ def card_matches(ident: dict, card: dict) -> bool:
     if "set" in ident and card.get("set", "").lower() != ident["set"]:
         return False
     want = _norm(ident["name"])
-    names = {_norm(card.get("name", ""))}
+    full = card.get("name", "")
+    names = {_norm(full)} | {_norm(part) for part in full.split(" // ")}
     names |= {_norm(f.get("name", "")) for f in card.get("card_faces", [])}
     return want in names
 
@@ -237,6 +239,26 @@ class Scryfall:
             else:
                 missing.append(e)
         return found, missing
+
+    def fuzzy(self, e: Entry) -> dict | None:
+        """One /cards/named?fuzzy= lookup for a line the exact lookup missed.
+        Only for name lookups: a pinned printing (Scryfall ID, set + number) never gets guessed."""
+        if e.scryfall_id or e.collector_number:
+            return None
+        params = {"fuzzy": e.name}
+        if e.set:
+            params["set"] = e.set.lower()
+        for attempt in range(4):
+            r = self.http.get(f"{API}/cards/named", params=params, timeout=30)
+            self.sleep(NAMED_INTERVAL)
+            if r.status_code == 429:
+                self.sleep(2 ** attempt)
+                continue
+            if r.status_code == 404:
+                return None
+            r.raise_for_status()
+            return r.json()
+        return None
 
     def image(self, url: str) -> Path:
         name = hashlib.sha1(url.split("?")[0].encode()).hexdigest()
@@ -466,6 +488,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--image", choices=["png", "large", "normal"], default="png",
                    help="Scryfall image size (png = 745x1040, best for print)")
     p.add_argument("--no-backs", action="store_true", help="skip back faces of double-faced cards")
+    p.add_argument("--no-fuzzy", action="store_true",
+                   help="don't retry unmatched names with Scryfall's fuzzy search (typo correction)")
     p.add_argument("--skip-basics", action="store_true",
                    help="leave out basic lands (Plains, Island, Swamp, Mountain, Forest, Wastes, snow basics)")
     p.add_argument("--exclude-category", action="append", default=None, metavar="NAME",
@@ -506,6 +530,17 @@ def main(argv=None, session=None, sleep=time.sleep) -> int:
     total = sum(e.qty for e in entries)
     print(f"Looking up {len(entries)} unique lines ({total} cards) on Scryfall...")
     found, missing = sf.resolve(entries)
+    if missing and not args.no_fuzzy:
+        still = []
+        for e in missing:
+            card = sf.fuzzy(e)
+            if card:
+                found[entries.index(e)] = card
+                if not card_matches({"name": e.name}, card):
+                    print(f"  corrected (line {e.line}): {e.name!r} -> {card['name']}", file=sys.stderr)
+            else:
+                still.append(e)
+        missing = still
     if args.skip_basics:   # then the type line, for anything the name check missed
         found = {i: c for i, c in found.items() if not is_basic_land(c)}
     for e in missing:

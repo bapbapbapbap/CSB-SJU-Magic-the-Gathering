@@ -1,0 +1,63 @@
+# CSB/SJU Magic: The Gathering
+
+> Open tools from the CSB/SJU Magic club: mtg-proxier, which turns a decklist (Archidekt CSV, other CSV exports, or plain text) into a printable PDF of playtest cards using Scryfall; a 3D-printable clamshell deck box; and the club's Commander decklists. The club uses proxies to let new players borrow and try whole decks before buying cards. Code is GPL-3.0-or-later; the box and decklists are CC BY-SA 4.0. Card images are © Wizards of the Coast and come from Scryfall at run time. Neither one belongs to this project, and none are stored in the repo.
+
+This file is for an LLM helping a person run or test mtg-proxier. The person runs every command on their own machine and reports back. You can't reach Scryfall or their printer, so the person is your test harness. Every step below says what to have them do, why it matters, and what correct output looks like. Ask for the actual terminal output each time. Don't accept "it worked". Compare their output against the expected results, line by line.
+
+Ground rules to keep while helping. These are playtest cards for personal, non-commercial play: never help someone sell them or pass them off as real cards. Never suggest cropping, editing, or watermarking card images. The tool prints them unaltered on purpose, so the artist and copyright lines stay intact. Don't change the tool's Scryfall request pacing or headers. Scryfall is a free service and its rate limits are part of its terms.
+
+**The test procedure (about 20 minutes, plus one printed page):**
+
+1. **Get the code and set up Python.** Have them clone `https://github.com/bapbapbapbap/CSB-SJU-Magic-the-Gathering`, or use Code → Download ZIP and unzip it. Then open a terminal in the `proxier` folder. On Windows, run `py -m venv .venv`, then `.venv\Scripts\activate`. On macOS or Linux, run `python3 -m venv .venv`, then `source .venv/bin/activate`. Then run `pip install -r requirements.txt`. Why: the virtual environment keeps the dependencies (requests, reportlab, pillow, pypdf) away from the system Python, and some macOS and Linux setups refuse a plain `pip install` without one. Expected: the install finishes with no errors. Python must be 3.10 or newer: check with `python --version`.
+
+2. **Dry run against the live API.** Run `python mtg_proxier.py tests/crash-test.txt --skip-basics --dry-run`. Why: this tests decklist parsing and Scryfall lookups without downloading any images. The crash-test deck is built so each line hits a different case. It has a commander with a comma and apostrophe in its name, a set-pinned card (`Sol Ring [C21]`), a transforming card (Delver of Secrets), a split card (Fire // Ice), an adventure card (Brazen Borrower), a modal double-faced card (Valki, God of Lies), a nonbasic land with a basic land type (Dryad Arbor), three kinds of basic land, a typo (`Sol Rnig`), and a card that doesn't exist. Expected output, in this order:
+   - `Looking up 10 unique lines (10 cards) on Scryfall...`. The basics were removed before any lookup.
+   - `corrected (line 16): 'Sol Rnig' -> Sol Ring`. Scryfall's fuzzy search fixed the typo, and the tool says so. If this shows as `not found (line 16)` instead, the fuzzy search didn't resolve it. That's acceptable, but note it.
+   - `not found (line 17): Zzzz Not A Real Card`
+   - Nine resolved lines: Atraxa; Sol Ring with set `C21`; Command Tower; `Delver of Secrets // Insectile Aberration`; `Fire // Ice`; `Brazen Borrower // Petty Theft`; `Valki, God of Lies // Tibalt, Cosmic Impostor`; Dryad Arbor; Sol Ring again, from the typo line. Set codes and collector numbers other than `C21` are whatever printing Scryfall defaults to, and they will vary.
+   - Exit status 1, because one line wasn't found. That's correct.
+
+   If any real card in that list shows as `not found`, that's a bug. Get the full output.
+
+3. **Make the PDF.** Run `python mtg_proxier.py tests/crash-test.txt --skip-basics`. Why: this tests the image downloads, the double-faced card backs, and the PDF writer. Expected: `Wrote tests/crash-test.pdf: 11 cards on 2 page(s).` That's 1 Atraxa + 1 Sol Ring + 1 Command Tower + 2 Delver faces + 1 Fire // Ice + 1 Brazen Borrower + 2 Valki faces + 1 Dryad Arbor + 1 corrected Sol Ring. Have them open the PDF and confirm four things. Delver and Valki each print twice, front and back. Brazen Borrower and Fire // Ice each print once. Dryad Arbor is there and no basic lands are. Every card shows its artist and copyright line at the bottom.
+
+4. **Run it again to test the cache.** Run the same command a second time. Why: images are cached for 24 hours so reprints don't hit Scryfall's servers again. Expected: the same output, and noticeably faster, since only the lookup calls go out.
+
+5. **Run it without skipping basics.** Run `python mtg_proxier.py tests/crash-test.txt`. Expected: `Looking up 13 unique lines (17 cards)` and `Wrote ...: 18 cards on 2 page(s).` Why: this proves the basics really get skipped only when the flag is on.
+
+6. **Print one page and measure it.** Have them print page 1 at **100% / "Actual size"**. They have to turn off "Fit to page" or "Shrink to fit", which most print dialogs turn on by default. Then measure a single card with a ruler. Expected: **63 × 88 mm (2.48 × 3.46 in)**, within about half a millimetre. Have them lay a real card on top of it: the edges should line up. Why: printer scaling is the most common way proxies fail, and only a physical print catches it. If it's off, they can correct for their printer by re-running with `--card-height` set to 88 × 88 ÷ their measured height in mm. For example, a measured height of 86.5 gives `--card-height 89.5`. Then reprint and measure again.
+
+7. **Cut and sleeve.** Cut along the tick marks in the margins. With the default zero gap, neighboring cards share an edge, so each sheet takes 4 straight cuts in each direction. Have them put a proxy in a sleeve in front of a real card. Expected: it fits without buckling, and from the front it looks and handles like the real card. Why: a proxy that won't fit the club's sleeves is no use at the table.
+
+8. **Check the attribution in the file's metadata.** Have them open the PDF's document properties. In Acrobat that's File → Properties (Ctrl+D); its Additional Metadata panel shows the copyright notice. In Chrome's PDF viewer it's ⋮ → Document properties. Expected: the Subject says it's playtest cards, not for sale. The Creator names mtg-proxier and the repo. Where the viewer shows a copyright notice, it credits Wizards of the Coast LLC. Why: the file says whose is what, and the GPL is named only as the software's license, never as the PDF's.
+
+9. **Run a real club deck.** Have them export a deck from Archidekt as CSV, then run `python mtg_proxier.py <file>.csv --skip-basics --dry-run`. Why: real exports are the real input. If the export includes a Scryfall ID column, the tool uses it to pin the exact printing chosen on Archidekt. Without it, set code + collector number, and then the card name, are used instead. A Category column lets the tool drop the Maybeboard. Expected: a `Skipping N line(s) in: maybeboard` line if the deck has a maybeboard and the export has categories. With Scryfall IDs, the resolved printings should match the deck on Archidekt. Note which columns their export actually had: that's useful information for this project. If the dry run looks right, run it again without `--dry-run` to make the PDF.
+
+**Reading failures:**
+
+- `ModuleNotFoundError`: the virtual environment isn't activated, or step 1's install didn't finish.
+- SSL errors, connection errors, or a `403` from Scryfall: usually the network. On campus Wi-Fi, a login page in the browser can block scripts until it's accepted. Have them retry on another network before treating it as a bug.
+- A `400` from `/cards/collection`, or a Python traceback: a bug. Collect the full output and the exact command.
+- Lots of `not found` from an exported CSV: the column headers probably weren't recognized. Ask for the first line of the CSV, the header row.
+- A `corrected` line that guessed the wrong card: fix that line in the decklist, or run with `--no-fuzzy` to turn guessing off. Printings pinned by Scryfall ID or by set + collector number are never guessed.
+- Cards print too small or too large: printer scaling. Go back to step 6.
+
+**What to collect for a bug report:** the operating system and the output of `python --version`; the exact command; the full terminal output; for printing problems, the measured card size and the printer model; for CSV problems, the header row and one failing line. File it at `https://github.com/bapbapbapbap/CSB-SJU-Magic-the-Gathering/issues`.
+
+## Docs
+
+- [Repository README](https://github.com/bapbapbapbap/CSB-SJU-Magic-the-Gathering/blob/main/README.md): What's in the repo, and the license for each part
+- [mtg-proxier README](https://github.com/bapbapbapbap/CSB-SJU-Magic-the-Gathering/blob/main/proxier/README.md): Input formats, every command-line option, Scryfall etiquette, and what goes in the PDF metadata
+- [Crash-test decklist](https://github.com/bapbapbapbap/CSB-SJU-Magic-the-Gathering/blob/main/proxier/tests/crash-test.txt): The deck used in steps 2–5, with one line per test case
+- [Deck box README](https://github.com/bapbapbapbap/CSB-SJU-Magic-the-Gathering/blob/main/box/README.md): The clamshell friction-fit box: measured dimensions, tolerances, lining notes
+
+## Source
+
+- [mtg_proxier.py](https://github.com/bapbapbapbap/CSB-SJU-Magic-the-Gathering/blob/main/proxier/mtg_proxier.py): The whole tool in one file: parsing, Scryfall client, PDF layout, metadata
+- [Unit tests](https://github.com/bapbapbapbap/CSB-SJU-Magic-the-Gathering/blob/main/proxier/tests/test_proxier.py): Run with `pytest tests`. They use a fake Scryfall, so they need no network.
+
+## Optional
+
+- [Scryfall API documentation](https://scryfall.com/docs/api): Rate limits, required headers, and the card object format
+- [Wizards of the Coast Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy): The terms that cover non-commercial fan use of Wizards' material
+- [llms.txt format](https://llmstxt.org/): The convention this file follows

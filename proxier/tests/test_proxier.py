@@ -112,6 +112,11 @@ DB = [
           faces=["Delver of Secrets", "Insectile Aberration"],
           type_line="Creature \u2014 Human Wizard // Creature \u2014 Human Insect"),
     _card("Fire // Ice", "mh2", "290"),
+    # Adventure as the real API shapes it: one image, faces carry names only
+    dict(_card("Brazen Borrower // Petty Theft", "eld", "39", type_line="Creature // Instant \u2014 Adventure"),
+         card_faces=[{"name": "Brazen Borrower"}, {"name": "Petty Theft"}]),
+    # and the same layout with no card_faces at all, to prove the " // " split alone works
+    _card("Bonecrusher Giant // Stomp", "eld", "115", type_line="Creature // Instant \u2014 Adventure"),
 ]
 
 
@@ -130,7 +135,7 @@ class Resp:
 class FakeSession:
     def __init__(self, throttle_first=0):
         self.headers = {}
-        self.posts, self.gets = [], []
+        self.posts, self.gets, self.named = [], [], []
         self.throttle = throttle_first
 
     def post(self, url, json=None, timeout=None):
@@ -146,8 +151,18 @@ class FakeSession:
             (data.append(hits[0]) if hits else nf.append(ident))
         return Resp(payload={"object": "list", "not_found": nf, "data": data})
 
-    def get(self, url, timeout=None):
+    def get(self, url, params=None, timeout=None):
         self.gets.append(url)
+        if url.endswith("/cards/named"):
+            self.named.append(params)
+            q = params["fuzzy"].lower().replace(" ", "")
+            for c in DB:
+                if "set" in params and c["set"] != params["set"]:
+                    continue
+                n = c["name"].lower().replace(" ", "")
+                if sorted(q) == sorted(n[:len(q)]) or n.startswith(q):   # crude stand-in for fuzzy
+                    return Resp(payload=c)
+            return Resp(404, payload={"object": "error"})
         return Resp(content=_png((90, 90, 120, 255)))
 
 
@@ -395,3 +410,42 @@ def test_xmp_stream_is_tagged(tmp_path):
     assert md["/Type"] == "/Metadata" and md["/Subtype"] == "/XML"
     r = subprocess.run(["pdfinfo", str(out)], capture_output=True, text=True)
     assert "Unknown Metadata" not in r.stderr
+
+
+# ---------------------------------------------------------------- adventures, fuzzy
+
+def test_adventure_and_split_match_on_either_half(tmp_path):
+    sf = mp.Scryfall(tmp_path, session=FakeSession(), sleep=lambda _: None)
+    found, missing = sf.resolve([mp.Entry("Brazen Borrower"), mp.Entry("Bonecrusher Giant"),
+                                 mp.Entry("Fire"), mp.Entry("Fire // Ice")])
+    assert not missing and len(found) == 4
+    assert mp.face_images(found[0], "png", backs=True) == [found[0]["image_uris"]["png"]]   # one image
+
+
+def test_fuzzy_corrects_typos_and_says_so(tmp_path, capsys):
+    deck = tmp_path / "d.txt"
+    deck.write_text("1 Sol Rnig\n1 Zzzz Not A Card\n")
+    s = FakeSession()
+    rc = mp.main([str(deck), "-o", str(tmp_path / "d.pdf"), "--cache-dir", str(tmp_path / "c")],
+                 session=s, sleep=lambda _: None)
+    err = capsys.readouterr().err
+    assert "corrected (line 1): 'Sol Rnig' -> Sol Ring" in err
+    assert "not found (line 2): Zzzz Not A Card" in err
+    assert rc == 1 and len(s.named) == 2
+
+
+def test_fuzzy_never_guesses_a_pinned_printing(tmp_path):
+    s = FakeSession()
+    sf = mp.Scryfall(tmp_path, session=s, sleep=lambda _: None)
+    assert sf.fuzzy(mp.Entry("Sol Ring", set="c21", collector_number="999")) is None
+    assert sf.fuzzy(mp.Entry("Sol Ring", scryfall_id="00000000-0000-0000-0000-000000000000")) is None
+    assert s.named == []
+
+
+def test_no_fuzzy_flag(tmp_path, capsys):
+    deck = tmp_path / "d.txt"
+    deck.write_text("1 Sol Rnig\n1 Sol Ring\n")
+    s = FakeSession()
+    rc = mp.main([str(deck), "--no-fuzzy", "-o", str(tmp_path / "d.pdf"), "--cache-dir", str(tmp_path / "c")],
+                 session=s, sleep=lambda _: None)
+    assert rc == 1 and s.named == [] and "not found (line 1): Sol Rnig" in capsys.readouterr().err

@@ -29,6 +29,8 @@ python mtg_proxier.py ../decks/<deck>.csv --skip-basics
 
 Print the PDF at 100% scale, cut along the marks, and sleeve each proxy in front of a basic land or a bulk card.
 
+Testing it, or getting an AI assistant to help you run it? Start with [`llms.txt`](llms.txt). It has the full test procedure and the expected results for each step.
+
 ---
 
 Unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. Not approved or endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.

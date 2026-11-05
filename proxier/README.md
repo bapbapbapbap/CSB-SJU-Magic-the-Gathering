@@ -41,6 +41,7 @@ SB: 1 Swords to Plowshares
 | `--skip-basics` | Leaves out basic lands: Plains, Island, Swamp, Mountain, Forest, Wastes, and snow basics. It checks the name first, so basics are never sent to the API, then checks each card's Scryfall type line to catch anything listed under another name. Dryad Arbor and other nonbasic Forests still print. |
 | `--exclude-category NAME` | Drops rows in that Archidekt category or Moxfield board. Repeatable. Default: `Maybeboard`. `--exclude-category none` prints everything. |
 | `--no-backs` | Prints only the front of double-faced cards. Default is front and back as separate cards. |
+| `--no-fuzzy` | Turns off typo correction. By default, a name that doesn't match exactly is retried with Scryfall's fuzzy search, and every correction is printed (`corrected (line 12): 'Sol Rnig' -> Sol Ring`) so you can check it. Printings pinned by Scryfall ID or by set + collector number are never guessed. |
 | `--page letter\|a4` | Paper size (default `letter`). |
 | `--gap MM` | Space between cards. The default, 0, means neighbors share a cut line, so a sheet takes 4 + 4 cuts. |
 | `--card-height MM` | Fine-tune if your printer scales. Width follows at 63:88. |
@@ -48,7 +49,7 @@ SB: 1 Swords to Plowshares
 | `--corner-fill black\|white\|#hex` | Color behind the rounded corners of the image. |
 | `--dry-run` | Look everything up and list what would print, without downloading images or writing a PDF. |
 
-Any card that can't be found is listed with its line number. The PDF still gets made, and the exit code is 1.
+Any card that still can't be found is listed with its line number. The PDF still gets made, and the exit code is 1.
 
 **Typical Commander run:** `python mtg_proxier.py deck.csv --skip-basics`
 
@@ -82,6 +83,10 @@ The GPL is never stated as the license of the PDF itself. The PDF is mostly Wiza
 ## License
 
 The code is [GPL-3.0-or-later](../LICENSES/GPL-3.0-or-later.txt). You can fork it, change it, and ship it, but anything you distribute that's built on it has to be GPL too, with source available. Card images aren't part of this repo: they're downloaded at run time and stay © Wizards of the Coast.
+
+## Testing against the live API
+
+`tests/crash-test.txt` is a deck built to hit every case: split, adventure, transform and modal double-faced cards, basics and snow basics, Dryad Arbor, a typo, and a card that doesn't exist. The full step-by-step procedure, with the expected output for each run, is in [`llms.txt`](../llms.txt) at the repo root. It's written so an LLM can walk anyone through it, and it reads fine for a person too.
 
 ## Tests
 

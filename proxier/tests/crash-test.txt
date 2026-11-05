@@ -1,0 +1,17 @@
+// mtg-proxier live crash test. Every line exercises a different case.
+// See llms.txt at the repo root for what each line should do.
+Commander
+1 Atraxa, Praetors' Voice
+Deck
+1 Sol Ring [C21]
+1 Command Tower
+1 Delver of Secrets
+1 Fire // Ice
+1 Brazen Borrower
+1 Valki, God of Lies
+1 Dryad Arbor
+4 Forest
+2 Snow-Covered Island
+1 Wastes
+1 Sol Rnig
+1 Zzzz Not A Real Card
