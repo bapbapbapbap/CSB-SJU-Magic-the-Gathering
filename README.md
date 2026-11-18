@@ -1,12 +1,12 @@
 # CSB/SJU Magic: The Gathering
 
-Tools I made for Magic: The Gathering, open for anyone to use: a deck box you can print, a proxy printer, and my decklists.
+Tools I made for Magic: The Gathering, open for anyone to use: a deck box you can print, a free proxy printer, the club's precon decklists, and a staples reference.
 
 | Folder | What's in it |
 |---|---|
 | [`box/`](box/) | A 3D-printable clamshell deck box sized for double-sleeved Commander decks (STL files) |
 | [`proxier/`](proxier/) | Turns a decklist CSV (Archidekt, Moxfield, ManaBox…) into a printable PDF of playtest cards using Scryfall |
-| [`decks/`](decks/) | My own Commander decklists, in a format the proxier reads directly |
+| [`decks/`](decks/) | The four CSB/SJU club precons, as CSVs the proxier reads directly, plus links to the [precon folder](https://archidekt.com/folders/1966850) and the [staples folder](https://archidekt.com/folders/1992238) on Archidekt |
 
 ## License: open, and it stays open
 
@@ -24,7 +24,7 @@ The one thing that isn't mine to license is the card art. The proxier downloads 
 Windows, from the `proxier` folder:
 
 ```
-.\proxy.bat ..\decks\<deck>.csv --skip-basics
+.\proxy.bat ..\decks\precon-flashy-flyers.csv --skip-basics
 ```
 
 macOS / Linux: see [`proxier/README.md`](proxier/README.md).

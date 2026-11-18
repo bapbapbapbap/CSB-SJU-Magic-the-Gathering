@@ -76,6 +76,7 @@ HEADER_ALIASES = {
                          "cn", "card number", "number", "collector #"},
     "scryfall_id": {"scryfall id", "scryfall_id", "scryfallid", "scryfall uuid", "scryfall_uuid"},
     "categories": {"category", "categories", "board"},
+    "categories2": {"secondary categories", "secondary category"},
 }
 SET_CODE = re.compile(r"^[A-Za-z0-9]{2,6}$")    # "Edition" is a code on Moxfield, a full name on Deckbox
 UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
@@ -99,12 +100,39 @@ def _canon_header(h: str) -> str | None:
     return None
 
 
+# Archidekt's full CSV export drops the comma between "Edition date" and
+# "Category" (header reads "Edition dateCategory"), so every column after it
+# is off by one. Rows themselves are fine. Split the merged cell back apart.
+MERGED_HEADER = re.compile(r"^(.*\bdate)\s*(categor(?:y|ies))$", re.I)
+
+
+def repair_header(header: list[str]) -> list[str]:
+    out = []
+    for h in header:
+        m = MERGED_HEADER.match(h.strip())
+        out.extend([m[1], m[2]] if m else [h])
+    return out
+
+
+def header_mapping(header: list[str]) -> dict[int, str]:
+    """Column index -> field. The first column with a given meaning wins:
+    Archidekt's full export has a second "Collector Number" column that
+    actually holds ownership ("not owned")."""
+    mapping, seen = {}, set()
+    for i, h in enumerate(header):
+        key = _canon_header(h)
+        if key and key not in seen:
+            mapping[i] = key
+            seen.add(key)
+    return mapping
+
+
 def parse_csv(text: str) -> list[Entry]:
     rows = list(csv.reader(io.StringIO(text)))
     rows = [r for r in rows if any(c.strip() for c in r)]
     if not rows:
         return []
-    mapping = {i: _canon_header(h) for i, h in enumerate(rows[0])}
+    mapping = header_mapping(repair_header(rows[0]))
     has_header = "name" in mapping.values()
     if not has_header:
         # Headerless: qty,name[,set[,collector_number]] or name only
@@ -128,7 +156,8 @@ def parse_csv(text: str) -> list[Entry]:
         sid = vals.get("scryfall_id")
         if sid and not UUID.match(sid):
             sid = None
-        cats = tuple(c.strip() for c in re.split(r"[,;]", vals.get("categories", "")) if c.strip())
+        raw_cats = ",".join(v for v in (vals.get("categories"), vals.get("categories2")) if v)
+        cats = tuple(c.strip() for c in re.split(r"[,;]", raw_cats) if c.strip())
         out.append(Entry(vals["name"], qty, set_, vals.get("collector_number") if set_ else None,
                          n, sid, cats))
     return out
@@ -547,7 +576,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="leave out basic lands (Plains, Island, Swamp, Mountain, Forest, Wastes, snow basics)")
     p.add_argument("--exclude-category", action="append", default=None, metavar="NAME",
                    help="drop rows in this Archidekt category / Moxfield board; repeatable "
-                        "(default: Maybeboard). Pass --exclude-category none to keep everything")
+                        "(default: Maybeboard and Sideboard). Pass --exclude-category none to keep everything")
     p.add_argument("--no-crop-marks", action="store_true")
     p.add_argument("--corner-fill", default="black",
                    help="color behind the rounded card corners: black, white, or #rrggbb")
@@ -567,7 +596,7 @@ def main(argv=None, session=None, sleep=time.sleep) -> int:
     except ValueError as e:
         print(f"error: {args.decklist}: {e}", file=sys.stderr)
         return 2
-    excluded = {_norm(c) for c in (args.exclude_category or ["Maybeboard"])} - {"none"}
+    excluded = {_norm(c) for c in (args.exclude_category or ["Maybeboard", "Sideboard"])} - {"none"}
     if excluded:
         before = len(entries)
         entries = [e for e in entries if not excluded & {_norm(c) for c in e.categories}]

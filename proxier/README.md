@@ -31,7 +31,7 @@ That writes `my-deck.pdf` next to the list. **Print at 100% / "Actual size"**, n
 | Exact printing | `Scryfall ID` (best), or `Set` / `Set Code` / `Edition Code` / `Edition` + `Collector Number` |
 | Category | `Category`, `Categories`, `Board` |
 
-- **Archidekt**: in the export dialog, tick *Exclude maybeboard(s)*, choose CSV, enable at least *Quantity*, *Name* and *Scryfall ID*, and keep *Include header line* checked. The Scryfall ID pins the exact printing you picked.
+- **Archidekt**: in the export dialog, tick *Exclude maybeboard(s)*, choose CSV, enable at least *Quantity*, *Name* and *Scryfall ID*, and keep *Include header line* checked. The Scryfall ID pins the exact printing you picked. Exporting with every column enabled works too: Archidekt's header for that export is malformed (`Edition dateCategory`, missing a comma), and the tool repairs it. Maybeboard and Sideboard rows are dropped by default either way.
 - **Moxfield**, **ManaBox**, **Deckbox**: their CSV exports work too. A set *name* in an `Edition` column (Deckbox) is ignored, and the card is looked up by name.
 - No header? `qty,name[,set,collector_number]` or one name per line works too.
 
@@ -50,7 +50,7 @@ SB: 1 Swords to Plowshares
 | Flag | Does |
 |---|---|
 | `--skip-basics` | Leaves out basic lands: Plains, Island, Swamp, Mountain, Forest, Wastes, and snow basics. It checks the name first, so basics are never sent to the API, then checks each card's Scryfall type line to catch anything listed under another name. Dryad Arbor and other nonbasic Forests still print. Page 1 of the PDF says which basics were left out and how many, e.g. *Basic lands not included (16): 12 Forest, 3 Snow-Covered Island, 1 Wastes*. |
-| `--exclude-category NAME` | Drops rows in that Archidekt category or Moxfield board. Repeatable. Default: `Maybeboard`. `--exclude-category none` prints everything. |
+| `--exclude-category NAME` | Drops rows in that Archidekt category or Moxfield board. Repeatable. Default: `Maybeboard` and `Sideboard` (neither is part of a Commander deck). `--exclude-category none` prints everything. |
 | `--no-backs` | Prints only the front of double-faced cards. Default is front and back as separate cards. |
 | `--no-fuzzy` | Turns off typo correction. By default, a name that doesn't match exactly is retried with Scryfall's fuzzy search, and every correction is printed (`corrected (line 12): 'Swords to Plow' -> Swords to Plowshares`). It completes partial or missing words; it won't fix swapped letters so you can check it. Printings pinned by Scryfall ID or by set + collector number are never guessed. |
 | `--page letter\|a4` | Paper size (default `letter`). |

@@ -534,3 +534,32 @@ def test_images_stored_binary_not_ascii85(tmp_path):
         filters = xo.get_object().get("/Filter")
         filters = [filters] if isinstance(filters, str) else list(filters or [])
         assert "/ASCII85Decode" not in filters
+
+
+# ---------------------------------------------------------------- Archidekt full export
+
+FULL_EXPORT = Path(__file__).with_name("archidekt-full-export.csv")
+
+
+def test_archidekt_full_export_header_is_repaired():
+    """Real rows from an Archidekt export with every column enabled. Its header
+    reads "Edition dateCategory" (missing comma) and has a second "Collector
+    Number" column holding ownership; card text with commas spills extra fields."""
+    rows = mp.parse_csv(FULL_EXPORT.read_text(encoding="utf-8-sig"))
+    tower, familiar, liege, maybe = rows
+    assert tower.name == "Command Tower"
+    assert tower.scryfall_id == "1ac6cb62-45da-4e9a-84c6-09e6eacf0664"
+    assert (tower.set, tower.collector_number) == ("frc", "22")    # not the price, not "not owned"
+    assert tower.categories == ("Land",)
+    assert familiar.categories[0] == "Sideboard"
+    assert liege.scryfall_id == "41a21a0c-fe3d-456b-a905-8d962c0b1e3c"   # despite 22 fields
+    assert "Maybeboard" in maybe.categories
+
+
+def test_sideboard_and_maybeboard_dropped_by_default(tmp_path, capsys):
+    deck = tmp_path / "d.csv"
+    deck.write_text(FULL_EXPORT.read_text(encoding="utf-8-sig"))
+    rc = mp.main([str(deck), "--dry-run", "--cache-dir", str(tmp_path / "c")],
+                 session=FakeSession(), sleep=lambda _: None)
+    out = capsys.readouterr().out
+    assert "Skipping 2 line(s) in: maybeboard, sideboard" in out
