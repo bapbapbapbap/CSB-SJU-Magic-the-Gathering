@@ -87,10 +87,11 @@ def _uuid(set_, cn):
     return f"{h[:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
 
 
-def _card(name, set_, cn, faces=None, type_line="Artifact"):
+def _card(name, set_, cn, faces=None, type_line="Artifact", ub=False, oracle=None):
     base = f"https://cards.scryfall.io/png/front/{set_}/{cn}"
     c = {"object": "card", "id": _uuid(set_, cn), "name": name, "set": set_,
-         "collector_number": cn, "type_line": type_line}
+         "collector_number": cn, "type_line": type_line,
+         "oracle_id": _uuid("oracle", oracle or name), "_ub": ub}   # _ub: fake-only, Scryfall has no such field
     if faces:
         c["card_faces"] = [{"name": f, "image_uris": {"png": f"{base}-{i}.png?1", "large": f"{base}-{i}.jpg"}}
                            for i, f in enumerate(faces)]
@@ -116,7 +117,33 @@ DB = [
          card_faces=[{"name": "Brazen Borrower"}, {"name": "Petty Theft"}]),
     # and the same layout with no card_faces at all, to prove the " // " split alone works
     _card("Bonecrusher Giant // Stomp", "eld", "115", type_line="Creature // Instant \u2014 Adventure"),
+    # Universes Beyond printings, listed after the normal ones
+    _card("Sol Ring", "fin", "255", ub=True),
+    _card("The One Ring", "ltr", "246", ub=True),                      # exists only as UB
+    _card("The One Ring", "ltc", "380", ub=True),
+    _card("Spider-Punk", "spm", "92", ub=True),
+    _card("Spider-Punk", "om1", "92", oracle="Spider-Punk"),           # Omenpaths reprint, same oracle ID
 ]
+
+
+def _fake_search(params):
+    """/cards/search for the two query shapes avoid_ub sends: '(oracleid:.. or ..) is:ub' and '... prefer:notub'."""
+    import re
+    q = params["q"]
+    oids = re.findall(r"oracleid:([0-9a-f-]{36})", q)
+    assert len(oids) <= mp.UB_BATCH
+    prints = [c for c in DB if c["oracle_id"] in oids]
+    if q.endswith(" is:ub"):
+        assert params["unique"] == "prints"
+        hits = [c for c in prints if c["_ub"]]
+    else:
+        assert q.endswith(" prefer:notub") and params["unique"] == "cards"
+        hits = []
+        for o in oids:   # one card per oracle ID: first non-UB printing, else first printing
+            mine = [c for c in prints if c["oracle_id"] == o]
+            pick = next((c for c in mine if not c["_ub"]), mine[0] if mine else None)
+            hits += [pick] if pick else []
+    return hits
 
 
 class Resp:
@@ -134,8 +161,9 @@ class Resp:
 class FakeSession:
     def __init__(self, throttle_first=0):
         self.headers = {}
-        self.posts, self.gets, self.named = [], [], []
+        self.posts, self.gets, self.named, self.searches = [], [], [], []
         self.throttle = throttle_first
+        self.pages = {}            # next_page URL -> remaining results (page size 2, to exercise paging)
 
     def post(self, url, json=None, timeout=None):
         assert url.endswith("/cards/collection")
@@ -152,6 +180,20 @@ class FakeSession:
 
     def get(self, url, params=None, timeout=None):
         self.gets.append(url)
+        if "/cards/search" in url:
+            if params is not None:
+                self.searches.append(params)
+                hits = _fake_search(params)
+            else:
+                hits = self.pages.pop(url)
+            if not hits and params is not None:
+                return Resp(404, payload={"object": "error", "code": "not_found"})
+            page, rest = hits[:2], hits[2:]
+            payload = {"object": "list", "data": page, "has_more": bool(rest)}
+            if rest:
+                payload["next_page"] = f"{mp.API}/cards/search?page={len(self.gets)}"
+                self.pages[payload["next_page"]] = rest
+            return Resp(payload=payload)
         if url.endswith("/cards/named"):
             self.named.append(params)
             q = params["fuzzy"].lower().replace(" ", "")
@@ -614,3 +656,71 @@ def test_strength_in_numbers_precon_parses_to_100():
     assert sum(e.qty for e in rows) == 100
     assert not any(e.set for e in rows)                            # no tag misread as a set
     assert sum(e.qty for e in rows if mp._norm(e.name) in mp.BASIC_LANDS) == 27
+
+
+# ---------------------------------------------------------------- --no-ub
+
+def _ub_entries():
+    return [mp.Entry("Sol Ring", set="fin", collector_number="255"),   # pinned UB printing
+            mp.Entry("Sol Ring", set="cmm", collector_number="400"),   # pinned non-UB: must not move
+            mp.Entry("Spider-Punk"),                                   # default printing is UB
+            mp.Entry("The One Ring"),                                  # UB-only card
+            mp.Entry("Command Tower")]
+
+
+def test_avoid_ub_swaps_only_ub_printings(tmp_path):
+    s = FakeSession()
+    sf = mp.Scryfall(tmp_path, session=s, sleep=lambda _: None)
+    found, _ = sf.resolve(_ub_entries())
+    swaps, ub_only = sf.avoid_ub(list({c["id"]: c for c in found.values()}.values()))
+    by_old = {(found[i]["set"], found[i]["collector_number"]): swaps.get(found[i]["id"]) for i in found}
+    assert (by_old[("fin", "255")]["set"], by_old[("fin", "255")]["collector_number"]) == ("c21", "263")
+    assert by_old[("spm", "92")]["set"] == "om1"
+    assert by_old[("cmm", "400")] is None and by_old[("cmm", "1032")] is None
+    assert [c["name"] for c in ub_only] == ["The One Ring"]
+    # step 1 asks for every print incl. other languages; step 2 only for the cards that were UB
+    first, second = s.searches
+    assert first["unique"] == "prints" and first["include_multilingual"] == "true"
+    assert second["q"].count("oracleid:") == 3
+
+
+def test_avoid_ub_batches_and_follows_pages(tmp_path):
+    s = FakeSession()
+    sf = mp.Scryfall(tmp_path, session=s, sleep=lambda _: None)
+    cards = [dict(DB[0], id=f"x{i}", oracle_id=f"{i:08d}-0000-0000-0000-000000000000") for i in range(20)]
+    cards.append(next(c for c in DB if c["set"] == "fin"))   # one real UB card
+    swaps, ub_only = sf.avoid_ub(cards)
+    assert [p["q"].count("oracleid:") for p in s.searches] == [15, 6, 1]   # 21 IDs -> 15 + 6, then 1 flagged
+    assert len(swaps) == 1 and not ub_only
+
+
+def test_avoid_ub_no_ub_cards_means_one_query(tmp_path):
+    s = FakeSession()
+    sf = mp.Scryfall(tmp_path, session=s, sleep=lambda _: None)
+    swaps, ub_only = sf.avoid_ub([DB[0], DB[2]])   # 404 from the is:ub search
+    assert swaps == {} and ub_only == [] and len(s.searches) == 1
+
+
+def test_avoid_ub_reversible_card_oracle_on_faces():
+    card = {"id": "r", "card_faces": [{"oracle_id": "abc"}, {"oracle_id": "abc"}]}
+    assert mp.oracle_id(card) == "abc"
+
+
+def test_no_ub_flag_end_to_end(tmp_path, capsys):
+    deck = tmp_path / "ub.txt"
+    deck.write_text("1 Sol Ring (FIN) 255\n1 Spider-Punk\n1 The One Ring\n1 Command Tower\n")
+    rc = mp.main([str(deck), "--no-ub", "--dry-run", "--cache-dir", str(tmp_path / "c")],
+                 session=FakeSession(), sleep=lambda _: None)
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Sol Ring (C21 263)" in out and "Spider-Punk (OM1 92)" in out
+    assert "The One Ring (LTR 246)" in out and "only printed as Universes Beyond, kept: The One Ring" in out
+    assert "non-UB art: Sol Ring (FIN 255) -> C21 263" in out
+
+
+def test_without_no_ub_nothing_is_searched(tmp_path, capsys):
+    deck = tmp_path / "ub.txt"
+    deck.write_text("1 Sol Ring (FIN) 255\n")
+    s = FakeSession()
+    mp.main([str(deck), "--dry-run", "--cache-dir", str(tmp_path / "c")], session=s, sleep=lambda _: None)
+    assert "Sol Ring (FIN 255)" in capsys.readouterr().out and s.searches == []
