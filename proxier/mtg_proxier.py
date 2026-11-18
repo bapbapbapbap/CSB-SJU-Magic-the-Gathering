@@ -163,18 +163,53 @@ def parse_csv(text: str) -> list[Entry]:
     return out
 
 
+# Archidekt's text export with categories ends each line with its tags:
+# "1 Martial Coup [Haymaker,Removal]", "1 Iroas, God of Victory [Commander{top}]".
+TRAILING_TAGS = re.compile(r"\s+\[(?P<tags>[^\[\]]+)\]\s*$")
+SET_IN_BRACKETS = re.compile(r"^(?:[A-Z0-9]{2,6}|[a-z0-9]{2,6})$")   # [C21], [cmm]; not [Draw]
+QTY_LINE = re.compile(r"^\s*(?:SB:\s*)?\d+\s*[xX]?\s+\S", re.I)
+
+
+def _split_tags(line: str, tags_only: bool) -> tuple[str, tuple[str, ...]]:
+    """Strip a trailing [..] when it holds categories rather than a set code."""
+    m = TRAILING_TAGS.search(line)
+    if not m:
+        return line, ()
+    raw = m["tags"]
+    if not tags_only and SET_IN_BRACKETS.match(raw.strip()):
+        return line, ()                          # "1 Arcane Signet [ELD]": a set code
+    tags = tuple(t for t in (re.sub(r"\{[^}]*\}", "", x).strip() for x in raw.split(",")) if t)
+    return line[:m.start()].rstrip(), tags
+
+
 def parse_text(text: str) -> list[Entry]:
-    out = []
-    for n, raw in enumerate(text.splitlines(), start=1):
+    lines = text.splitlines()
+    # Files where cards carry quantities: a line without one is a section heading
+    # ("Anthem", "Removal", "Maybeboard"), never a card.
+    counted = sum(bool(QTY_LINE.match(l)) for l in lines)
+    named = sum(1 for l in lines if l.strip() and not l.strip().startswith(("//", "#")))
+    headings_unnumbered = counted > 0 and counted >= named / 2
+    # Any tag with braces or commas means this is Archidekt's tagged export,
+    # so every trailing [..] on a line is a category, even [Draw].
+    tags_only = any((m := TRAILING_TAGS.search(l)) and re.search(r"[{,]", m["tags"]) for l in lines)
+    out, section = [], ()
+    for n, raw in enumerate(lines, start=1):
         line = raw.strip()
-        if not line or line.startswith(("//", "#")) or SECTION_HEADERS.match(line):
+        if not line or line.startswith(("//", "#")):
             continue
+        heading = line.rstrip(":")
+        if SECTION_HEADERS.match(line) or (headings_unnumbered and not QTY_LINE.match(line)):
+            section = (re.sub(r"\s*\(\d+\)$", "", heading).strip(),)
+            continue
+        cats = section
         if line.upper().startswith("SB:"):
-            line = line[3:].strip()
+            line, cats = line[3:].strip(), ("Sideboard",)
+        line, tags = _split_tags(line, tags_only)
         m = TEXT_LINE.match(line)
         if not m:
             continue
-        out.append(Entry(m["name"].strip(), int(m["qty"] or 1), m["set"], m["cn"], n))
+        out.append(Entry(m["name"].strip(), int(m["qty"] or 1), m["set"], m["cn"], n,
+                         categories=tuple(dict.fromkeys(cats + tags))))
     return out
 
 

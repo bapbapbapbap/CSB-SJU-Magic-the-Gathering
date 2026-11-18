@@ -1,0 +1,96 @@
+Commander
+1 Iroas, God of Victory [Commander{top}]
+
+Anthem
+1 Adriana, Captain of the Guard [Anthem]
+1 Balefire Liege [Anthem]
+1 Blade Historian [Anthem]
+1 Goldnight Commander [Anthem]
+1 Intangible Virtue [Anthem]
+1 Prava of the Steel Legion [Anthem]
+1 Samut, Hazoret's Champion [Anthem]
+1 Tori D'Avenant, Fury Rider [Anthem]
+
+Burn
+1 Impact Tremors [Burn]
+
+Copy
+1 Windcrag Siege [Copy]
+
+Draw
+1 Aurelia, the Law Above [Draw]
+1 Court of Grace [Draw]
+1 Honor [Draw]
+1 Idol of Oblivion [Draw]
+1 Neyali, Suns' Vanguard [Draw]
+1 Quarrel's End [Draw]
+1 Tocasia's Welcome [Draw]
+
+Haymaker
+1 Ajani Unrelenting [Haymaker]
+1 Full Throttle [Haymaker,Finisher]
+1 Martial Coup [Haymaker,Removal]
+1 Master Warcraft [Haymaker,Protection]
+1 White Sun's Zenith [Haymaker]
+
+Land
+1 Boros Garrison [Land]
+1 Clifftop Retreat [Land]
+1 Command Tower [Land]
+1 Exotic Orchard [Land]
+10 Mountain [Land]
+17 Plains [Land]
+1 Radiant Summit [Land]
+1 Rugged Prairie [Land]
+1 Sundown Pass [Land]
+1 Sunscorched Divide [Land]
+1 Temple of Triumph [Land]
+
+Protection
+1 Boros Charm [Protection]
+1 Duty Beyond Death [Protection]
+1 Make a Stand [Protection]
+1 Selfless Spirit [Protection]
+1 Unbreakable Formation [Protection]
+
+Ramp
+1 Arcane Signet [Ramp]
+1 Boros Signet [Ramp]
+1 Chandra, Torch of Defiance [Ramp]
+1 Gold Myr [Ramp]
+1 Iron Myr [Ramp]
+1 Sol Ring [Ramp]
+1 Talisman of Conviction [Ramp]
+
+Removal
+1 Ajani's Anguish [Removal]
+1 Banishing Slash [Removal]
+1 Burn Down the House [Removal]
+1 Chaos Warp [Removal]
+1 Justice Strike [Removal]
+1 Lightning Bolt [Removal]
+1 Lightning Helix [Removal]
+1 Lorehold Charm [Removal]
+1 Ride Down [Removal]
+
+Tokens
+1 Adeline, Resplendent Cathar [Tokens]
+1 Ainok Strike Leader [Tokens]
+1 Anim Pakal, Thousandth Moon [Tokens]
+1 Archangel Elspeth [Tokens]
+1 Assemble the Legion [Tokens]
+1 Baird, Argivian Recruiter [Tokens]
+1 Call the Cavalry [Tokens]
+1 Catharsis [Tokens]
+1 Dalkovan Packbeasts [Tokens]
+1 Dragonback Lancer [Tokens]
+1 Elspeth, Sun's Champion [Tokens]
+1 Frontline Rush [Tokens]
+1 Gather the Townsfolk [Tokens]
+1 Hero of Bladehold [Tokens]
+1 Infantry Shield [Tokens]
+1 Legion Warboss [Tokens]
+1 Loyal Apprentice [Tokens]
+1 Shock Brigade [Tokens]
+1 Skyknight Vanguard [Tokens]
+1 Zurgo's Vanguard [Tokens]

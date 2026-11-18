@@ -1,6 +1,6 @@
 # mtg-proxier
 
-Decklist in, printable PDF out. Reads a CSV or plain-text decklist, looks every card up on [Scryfall](https://scryfall.com), and lays the card images out 3×3 at real card size (63 × 88 mm) with cut marks, ready to print, cut, and sleeve in front of a basic land.
+Decklist in, printable PDF out. First time? Follow the [tutorial](../TUTORIAL.md). Reads a CSV or plain-text decklist, looks every card up on [Scryfall](https://scryfall.com), and lays the card images out 3×3 at real card size (63 × 88 mm) with cut marks, ready to print, cut, and sleeve in front of a basic land.
 
 **Windows** (PowerShell or cmd, in this folder):
 
@@ -35,7 +35,7 @@ That writes `my-deck.pdf` next to the list. **Print at 100% / "Actual size"**, n
 - **Moxfield**, **ManaBox**, **Deckbox**: their CSV exports work too. A set *name* in an `Edition` column (Deckbox) is ignored, and the card is looked up by name.
 - No header? `qty,name[,set,collector_number]` or one name per line works too.
 
-**Plain text** (`.txt`, or anything that isn't `.csv`/`.tsv`) in the usual decklist formats:
+**Plain text** (`.txt`, or anything that isn't `.csv`/`.tsv`) in the usual decklist formats. Section headings (`Commander`, `Sideboard`, or any custom heading like `Anthem` in a list where cards have quantities) are read as categories, never as cards. **Archidekt's text export with categories** works too: trailing tags like `[Haymaker,Removal]` or `[Commander{top}]` are read as categories, so Maybeboard and Sideboard drop out just as they do from a CSV. A bracket holding only a set code, like `[C21]`, is still read as the set.
 
 ```
 Commander

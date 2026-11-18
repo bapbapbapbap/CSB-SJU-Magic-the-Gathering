@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" width="1200" height="440" role="img" aria-labelledby="t d">
+  <title id="t">mtg-proxier: decklist in, print-ready proxies out</title>
+  <desc id="d">A decklist file goes through Scryfall and comes out as a letter-size sheet of nine cards at real size with cut marks, and a note listing the basic lands left out.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d2b24"/>
+      <stop offset="1" stop-color="#12201a"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9e2d0"/>
+      <stop offset="1" stop-color="#d8cfb8"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c9a24a"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <g id="mini">
+      <!-- one stand-in card: frame, art box, type bar, text box. No real card art. -->
+      <rect width="63" height="88" rx="3.5" fill="#2a2a2a"/>
+      <rect x="4" y="4" width="55" height="80" rx="2" fill="url(#card)"/>
+      <rect x="7" y="8" width="49" height="5" rx="1" fill="#b9ae93"/>
+      <rect x="7" y="16" width="49" height="30" rx="1" fill="#8fa89a"/>
+      <rect x="7" y="49" width="49" height="4" rx="1" fill="#b9ae93"/>
+      <rect x="7" y="56" width="49" height="22" rx="1" fill="#efe9da"/>
+      <rect x="10" y="60" width="38" height="2" fill="#c8bfa8"/>
+      <rect x="10" y="65" width="42" height="2" fill="#c8bfa8"/>
+      <rect x="10" y="70" width="30" height="2" fill="#c8bfa8"/>
+    </g>
+  </defs>
+
+  <rect width="1200" height="440" rx="18" fill="url(#bg)"/>
+
+  <!-- Headline -->
+  <text x="60" y="78" fill="#f3ecdc" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="40" font-weight="700">Decklist in. Proxies out.</text>
+  <text x="60" y="114" fill="#b8c7bd" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="19">Free and open source, from the CSB/SJU Magic club. Real card size, cut marks, every right credited.</text>
+
+  <!-- Decklist file -->
+  <g transform="translate(60,160)" filter="url(#shadow)">
+    <path d="M0,0 H230 L260,30 V230 H0 z" fill="#f6f1e5"/>
+    <path d="M230,0 V30 H260 z" fill="#d9d0bb"/>
+    <text x="16" y="24" fill="#5b6b62" font-family="Consolas, Menlo, monospace" font-size="13" font-weight="700">deck.txt</text>
+    <g font-family="Consolas, Menlo, monospace" font-size="13" fill="#2b332f">
+      <text x="16" y="56">Commander</text>
+      <text x="16" y="76">1 Iroas, God of Victory</text>
+      <text x="16" y="100">Ramp</text>
+      <text x="16" y="120">1 Sol Ring</text>
+      <text x="16" y="140">1 Boros Signet</text>
+      <text x="16" y="164">Land</text>
+      <text x="16" y="184">17 Plains</text>
+      <text x="16" y="204">10 Mountain</text>
+    </g>
+  </g>
+
+  <!-- Arrow 1 through Scryfall -->
+  <line x1="342" y1="275" x2="470" y2="275" stroke="#c9a24a" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="406" y="262" text-anchor="middle" fill="#c9a24a" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="600">Scryfall</text>
+  <text x="406" y="300" text-anchor="middle" fill="#8ea397" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="12">exact printings</text>
+
+  <!-- Letter sheet, 3x3 at true proportion (scale 1.0 = 1mm per unit, then scaled) -->
+  <g transform="translate(492,146) scale(0.98)" filter="url(#shadow)">
+    <rect width="216" height="279" fill="#fbfaf6"/>
+    <rect x="13.5" y="2.2" width="120" height="3" rx="1" fill="#b4533d"/>
+    <g transform="translate(13.5,7.5)">
+      <use href="#mini" x="0" y="0"/><use href="#mini" x="63" y="0"/><use href="#mini" x="126" y="0"/>
+      <use href="#mini" x="0" y="88"/><use href="#mini" x="63" y="88"/><use href="#mini" x="126" y="88"/>
+      <use href="#mini" x="0" y="176"/><use href="#mini" x="63" y="176"/><use href="#mini" x="126" y="176"/>
+    </g>
+    <!-- cut ticks in the margins -->
+    <g stroke="#555" stroke-width="0.5">
+      <line x1="13.5" y1="0" x2="13.5" y2="5"/><line x1="76.5" y1="0" x2="76.5" y2="5"/><line x1="139.5" y1="0" x2="139.5" y2="5"/><line x1="202.5" y1="0" x2="202.5" y2="5"/>
+      <line x1="13.5" y1="274" x2="13.5" y2="279"/><line x1="76.5" y1="274" x2="76.5" y2="279"/><line x1="139.5" y1="274" x2="139.5" y2="279"/><line x1="202.5" y1="274" x2="202.5" y2="279"/>
+      <line x1="0" y1="7.5" x2="8" y2="7.5"/><line x1="0" y1="95.5" x2="8" y2="95.5"/><line x1="0" y1="183.5" x2="8" y2="183.5"/><line x1="0" y1="271.5" x2="8" y2="271.5"/>
+      <line x1="208" y1="7.5" x2="216" y2="7.5"/><line x1="208" y1="95.5" x2="216" y2="95.5"/><line x1="208" y1="183.5" x2="216" y2="183.5"/><line x1="208" y1="271.5" x2="216" y2="271.5"/>
+    </g>
+    <text x="108" y="277.5" text-anchor="middle" fill="#888" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="4.2">Playtest cards. Not for sale.</text>
+  </g>
+
+  <!-- Callouts on the right -->
+  <g font-family="Segoe UI, Helvetica Neue, Arial, sans-serif">
+    <g transform="translate(780,170)">
+      <circle cx="10" cy="10" r="10" fill="#c9a24a"/><text x="10" y="15" text-anchor="middle" font-size="13" font-weight="700" fill="#1d2b24">1</text>
+      <text x="32" y="9" fill="#f3ecdc" font-size="17" font-weight="600">63 × 88 mm, 9 to a page</text>
+      <text x="32" y="30" fill="#a9b9af" font-size="14">Shared cut lines: 4 cuts each way</text>
+    </g>
+    <g transform="translate(780,235)">
+      <circle cx="10" cy="10" r="10" fill="#c9a24a"/><text x="10" y="15" text-anchor="middle" font-size="13" font-weight="700" fill="#1d2b24">2</text>
+      <text x="32" y="9" fill="#f3ecdc" font-size="17" font-weight="600">Says what it left out</text>
+      <text x="32" y="30" fill="#a9b9af" font-size="14">Basics and missing cards, with counts, on page 1</text>
+    </g>
+    <g transform="translate(780,300)">
+      <circle cx="10" cy="10" r="10" fill="#c9a24a"/><text x="10" y="15" text-anchor="middle" font-size="13" font-weight="700" fill="#1d2b24">3</text>
+      <text x="32" y="9" fill="#f3ecdc" font-size="17" font-weight="600">Licensing inside every PDF</text>
+      <text x="32" y="30" fill="#a9b9af" font-size="14">Wizards, Scryfall and the GPL each credited</text>
+    </g>
+    <g transform="translate(780,365)">
+      <circle cx="10" cy="10" r="10" fill="#c9a24a"/><text x="10" y="15" text-anchor="middle" font-size="13" font-weight="700" fill="#1d2b24">4</text>
+      <text x="32" y="9" fill="#f3ecdc" font-size="17" font-weight="600">Archidekt, Moxfield, ManaBox</text>
+      <text x="32" y="30" fill="#a9b9af" font-size="14">CSV or text exports, as they are</text>
+    </g>
+  </g>
+</svg>

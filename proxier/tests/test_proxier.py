@@ -563,3 +563,54 @@ def test_sideboard_and_maybeboard_dropped_by_default(tmp_path, capsys):
                  session=FakeSession(), sleep=lambda _: None)
     out = capsys.readouterr().out
     assert "Skipping 2 line(s) in: maybeboard, sideboard" in out
+
+
+# ---------------------------------------------------------------- Archidekt text export
+
+ARCHIDEKT_TEXT = """Commander
+1 Iroas, God of Victory [Commander{top}]
+
+Anthem
+1 Balefire Liege [Anthem]
+
+Draw
+1 Court of Grace [Draw]
+
+Haymaker
+1 Martial Coup [Haymaker,Removal]
+
+Land
+10 Mountain [Land]
+
+Maybeboard
+1 Sol Ring [Maybeboard]
+"""
+
+
+def test_archidekt_text_export_tags_and_headings():
+    rows = mp.parse_text(ARCHIDEKT_TEXT)
+    got = [(e.qty, e.name, e.set, e.categories) for e in rows]
+    assert got == [
+        (1, "Iroas, God of Victory", None, ("Commander",)),       # {top} stripped
+        (1, "Balefire Liege", None, ("Anthem",)),                 # "Anthem" heading is not a card
+        (1, "Court of Grace", None, ("Draw",)),                   # [Draw] is a tag, not a set code
+        (1, "Martial Coup", None, ("Haymaker", "Removal")),
+        (10, "Mountain", None, ("Land",)),
+        (1, "Sol Ring", None, ("Maybeboard",)),
+    ]
+
+
+def test_archidekt_text_export_drops_maybeboard(tmp_path, capsys):
+    deck = tmp_path / "d.txt"
+    deck.write_text(ARCHIDEKT_TEXT)
+    mp.main([str(deck), "--dry-run", "--skip-basics", "--cache-dir", str(tmp_path / "c")],
+            session=FakeSession(), sleep=lambda _: None)
+    assert "Skipping 1 line(s) in: maybeboard, sideboard" in capsys.readouterr().out
+
+
+def test_strength_in_numbers_precon_parses_to_100():
+    deck = Path(__file__).parents[2] / "decks" / "precon-strength-in-numbers.txt"
+    rows = mp.parse_decklist(deck)
+    assert sum(e.qty for e in rows) == 100
+    assert not any(e.set for e in rows)                            # no tag misread as a set
+    assert sum(e.qty for e in rows if mp._norm(e.name) in mp.BASIC_LANDS) == 27
