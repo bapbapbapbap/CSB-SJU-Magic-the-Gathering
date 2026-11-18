@@ -7,6 +7,7 @@
 <p align="center">
   <a href="TUTORIAL.md"><b>Tutorial: print a deck</b></a> ·
   <a href="decks/"><b>Club precons</b></a> ·
+  <a href="https://archidekt.com/folders/2002245"><b>Bracket 2 decks</b></a> ·
   <a href="https://archidekt.com/folders/1992238"><b>Staples</b></a> ·
   <a href="box/"><b>Deck box</b></a> ·
   <a href="proxier/"><b>Proxier reference</b></a>
@@ -20,6 +21,7 @@ Free, open tools from the CSB/SJU Magic club. The point is simple: **anyone shou
 |---|---|
 | **[mtg-proxier](proxier/)** | Turns a decklist into a print-ready PDF of playtest cards: real card size (63 × 88 mm), 9 per page, with cut marks. Reads Archidekt, Moxfield and ManaBox exports, CSV or text, as they are. Card images come from [Scryfall](https://scryfall.com) at the exact printing you picked. |
 | **[Club precons](decks/)** | Five Commander decks built for loaning to new players, ready to proxy. They're also kept on Archidekt in the [CSB/SJU Precon folder](https://archidekt.com/folders/1966850). |
+| **[Bracket 2 decks](https://archidekt.com/folders/2002245)** | A larger library of bracket 2 Commander decks built for the club. Export any of them from Archidekt and the proxier prints it. |
 | **[Staples](https://archidekt.com/folders/1992238)** | A hand-built reference of Commander staples, sorted by job: ramp, draw, interaction, tutors and more. |
 | **[Deck box](box/)** | A 3D-printable two-piece clamshell for double-sleeved Commander decks. It's a friction fit, with no hinge, magnet or latch. STL files included. |
 

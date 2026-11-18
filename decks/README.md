@@ -18,6 +18,10 @@ Proxy one (Windows, from the `proxier` folder; new to this? see the [tutorial](.
 
 Maybeboard and Sideboard cards are left out automatically. Basic lands are skipped and listed with their counts on page 1 of the PDF.
 
+## More decks
+
+A larger library of bracket 2 Commander decks built for the club: [Archidekt bracket 2 folder](https://archidekt.com/folders/2002245). Export any of them (CSV or text) and run it through the proxier the same way. The [tutorial](../TUTORIAL.md#from-archidekt) covers the export settings.
+
 ## Staples
 
 A hand-built reference of Commander staples, sorted by job (ramp, draw, interaction, tutors and more): [Archidekt staples folder](https://archidekt.com/folders/1992238).
