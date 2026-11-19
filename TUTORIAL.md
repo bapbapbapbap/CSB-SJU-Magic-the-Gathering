@@ -122,6 +122,7 @@ Save it as a `.txt` file and run it the same way. If a name has a typo or is cut
 |---|---|
 | `--dry-run` | Check every card resolves, without downloading images or making a PDF. A good first step for a new list. |
 | `--no-backs` | Print only the front of double-faced cards |
+| `--no-ub` | Use non-Universes Beyond art wherever a non-UB printing exists |
 | `--page a4` | Print on A4 paper instead of US Letter |
 | `--gap 2` | Leave a 2 mm gap between cards, if you'd rather cut each card on its own |
 | `--exclude-category none` | Print everything, Maybeboard and Sideboard included |

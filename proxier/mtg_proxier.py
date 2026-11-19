@@ -35,6 +35,7 @@ COLLECTION_BATCH = 75          # Scryfall's max identifiers per /cards/collectio
 COLLECTION_INTERVAL = 0.5      # /cards/collection is limited to 2 requests/second
 IMAGE_INTERVAL = 0.05          # be polite to the image CDN too
 NAMED_INTERVAL = 0.1           # /cards/named and other API endpoints: 10 requests/second
+UB_BATCH = 15                  # oracle IDs per /cards/search query (keeps the q string short)
 CACHE_TTL = 24 * 3600          # Scryfall asks clients to cache for at least 24 h
 
 MM = 72 / 25.4                 # PDF points per millimetre
@@ -252,6 +253,13 @@ def card_matches(ident: dict, card: dict) -> bool:
     return want in names
 
 
+def oracle_id(card: dict) -> str | None:
+    """Reversible cards keep their oracle ID on the faces, not the card."""
+    if card.get("oracle_id"):
+        return card["oracle_id"]
+    return next((f["oracle_id"] for f in card.get("card_faces", []) if f.get("oracle_id")), None)
+
+
 class Scryfall:
     def __init__(self, cache_dir: Path, session=None, sleep=time.sleep):
         if session is None:
@@ -324,6 +332,60 @@ class Scryfall:
             r.raise_for_status()
             return r.json()
         return None
+
+    def _search(self, q: str, unique: str, multilingual: bool = False) -> list[dict]:
+        """Every result of a /cards/search query, following pagination. No match -> []."""
+        url, params = f"{API}/cards/search", {"q": q, "unique": unique}
+        if multilingual:
+            params["include_multilingual"] = "true"
+        out: list[dict] = []
+        while url:
+            for attempt in range(4):
+                r = self.http.get(url, params=params, timeout=30)
+                self.sleep(NAMED_INTERVAL)
+                if r.status_code != 429:
+                    break
+                self.sleep(2 ** attempt)
+            else:
+                raise RuntimeError("Scryfall kept answering 429 Too Many Requests; try again in a minute")
+            if r.status_code == 404:          # Scryfall's answer to "no cards matched"
+                return out
+            r.raise_for_status()
+            page = r.json()
+            out.extend(page.get("data", []))
+            url, params = (page.get("next_page"), None) if page.get("has_more") else (None, None)
+        return out
+
+    def _by_oracle(self, oids: list[str], suffix: str, unique: str, multilingual: bool = False) -> list[dict]:
+        cards = []
+        for i in range(0, len(oids), UB_BATCH):
+            ors = " or ".join(f"oracleid:{o}" for o in oids[i:i + UB_BATCH])
+            cards.extend(self._search(f"({ors}) {suffix}", unique, multilingual))
+        return cards
+
+    def avoid_ub(self, cards: list[dict]) -> tuple[dict[str, dict], list[dict]]:
+        """Swap Universes Beyond printings for the printing Scryfall picks under
+        prefer:notub. Printings that aren't UB are left alone, pinned or not.
+        Returns ({old card id: replacement}, [UB cards with no other printing])."""
+        oids = sorted({o for c in cards if (o := oracle_id(c))})
+        if not oids:
+            return {}, []
+        # 1. which of these printings are UB? (Scryfall has no field for it on the card object)
+        ub_ids = {c["id"] for c in self._by_oracle(oids, "is:ub", "prints", multilingual=True)}
+        flagged = [c for c in cards if c["id"] in ub_ids]
+        if not flagged:
+            return {}, []
+        # 2. for those, the printing Scryfall prefers when UB is pushed to the back
+        f_oids = sorted({o for c in flagged if (o := oracle_id(c))})
+        best = {oracle_id(c): c for c in self._by_oracle(f_oids, "prefer:notub", "cards")}
+        swaps, ub_only = {}, []
+        for c in flagged:
+            b = best.get(oracle_id(c))
+            if b and b["id"] not in ub_ids:
+                swaps[c["id"]] = b
+            else:                              # nothing but UB printings exist: keep the one asked for
+                ub_only.append(c)
+        return swaps, ub_only
 
     def image(self, url: str) -> Path:
         name = hashlib.sha1(url.split("?")[0].encode()).hexdigest()
@@ -612,6 +674,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--exclude-category", action="append", default=None, metavar="NAME",
                    help="drop rows in this Archidekt category / Moxfield board; repeatable "
                         "(default: Maybeboard and Sideboard). Pass --exclude-category none to keep everything")
+    p.add_argument("--no-ub", action="store_true",
+                   help="swap Universes Beyond printings for non-UB art (Scryfall prefer:notub), "
+                        "including printings pinned in the decklist; cards printed only as UB stay as they are")
     p.add_argument("--no-crop-marks", action="store_true")
     p.add_argument("--corner-fill", default="black",
                    help="color behind the rounded card corners: black, white, or #rrggbb")
@@ -667,6 +732,17 @@ def main(argv=None, session=None, sleep=time.sleep) -> int:
             if is_basic_land(c):
                 skipped_basics[c["name"]] += entries[i].qty
         found = {i: c for i, c in found.items() if not is_basic_land(c)}
+    if args.no_ub and found:
+        uniq = {c["id"]: c for c in found.values()}
+        swaps, ub_only = sf.avoid_ub(list(uniq.values()))
+        for old_id, new in swaps.items():
+            old = uniq[old_id]
+            print(f"  non-UB art: {old['name']} ({old['set'].upper()} {old['collector_number']}) -> "
+                  f"{new['set'].upper()} {new['collector_number']}")
+        for c in ub_only:
+            print(f"  only printed as Universes Beyond, kept: {c['name']} "
+                  f"({c['set'].upper()} {c['collector_number']})")
+        found = {i: swaps.get(c["id"], c) for i, c in found.items()}
     for e in missing:
         where = f" [{e.set}{' #' + e.collector_number if e.collector_number else ''}]" if e.set else ""
         print(f"  not found (line {e.line}): {e.name}{where}", file=sys.stderr)
